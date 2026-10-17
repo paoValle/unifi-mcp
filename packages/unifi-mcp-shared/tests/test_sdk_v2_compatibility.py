@@ -151,6 +151,34 @@ async def test_bare_allowed_host_accepts_host_header_with_or_without_port(host_h
     assert response.status_code == 400
 
 
+async def test_wildcard_allowed_host_accepts_any_host_header() -> None:
+    """`*` is not an SDK v2 host pattern; it disables the Host/Origin checks instead (#856)."""
+    server = UniFiMCPServer(
+        "host-pattern-test",
+        transport_security=TransportSecuritySettings(allowed_hosts=["*"]),
+    )
+    assert server.transport_security is not None
+    assert server.transport_security.enable_dns_rebinding_protection is False
+
+    app = server.streamable_http_app(transport_security=server.transport_security, host="127.0.0.1")
+    transport = httpx.ASGITransport(app=app)
+    async with app.router.lifespan_context(app):
+        async with httpx.AsyncClient(transport=transport, base_url="http://127.0.0.1:34567") as client:
+            response = await client.post(
+                "/mcp",
+                json={"jsonrpc": "2.0", "id": 1, "method": "server/discover", "params": {}},
+                headers={
+                    "Host": "attacker.example",
+                    "Accept": "application/json, text/event-stream",
+                    "MCP-Protocol-Version": "2026-07-28",
+                },
+            )
+
+    # Past host validation (which answers 421); the incomplete envelope is then rejected.
+    assert response.status_code == 400
+    assert "jsonrpc" in response.text
+
+
 async def test_unlisted_host_is_still_rejected() -> None:
     server = UniFiMCPServer(
         "host-pattern-test",

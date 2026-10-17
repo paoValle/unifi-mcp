@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from mcp.server.mcpserver import Context
@@ -13,6 +14,8 @@ from unifi_mcp_shared.response_serialization import serialize_call_tool_result
 from unifi_mcp_shared.strict_dispatch import StrictKwargFastMCP
 
 _DEFAULT_ALLOWED_HOSTS = "localhost,127.0.0.1"
+
+logger = logging.getLogger(__name__)
 
 
 class UniFiMCPServer(StrictKwargFastMCP):
@@ -62,7 +65,12 @@ def resolve_allowed_hosts(
 def _normalize_transport_security(
     settings: TransportSecuritySettings | None,
 ) -> TransportSecuritySettings | None:
-    """Normalize v1-style bare hosts for the SDK v2 host-and-port matcher."""
+    """Normalize v1-style bare hosts for the SDK v2 host-and-port matcher.
+
+    A bare ``*`` also turns DNS rebinding protection off: the SDK matches an entry literally
+    or as ``name:*``, so no pattern accepts an arbitrary host and this is the only way to
+    honour the entry. Prefer naming the hosts; ``*`` is for a trusted network only.
+    """
     if settings is None:
         return None
 
@@ -71,6 +79,14 @@ def _normalize_transport_security(
         for value in _normalize_allowed_host(host):
             if value not in allowed_hosts:
                 allowed_hosts.append(value)
+    if "*" in allowed_hosts:
+        # The SDK matches an entry either literally or as "name:*"; a bare "*" is no
+        # wildcard there, so honour the operator's intent by turning the checks off.
+        logger.warning(
+            "'*' in the allowed hosts: the Host and Origin checks are disabled for this server, "
+            "the same effect as UNIFI_MCP_ENABLE_DNS_REBINDING_PROTECTION=false, which it overrides"
+        )
+        return settings.model_copy(update={"allowed_hosts": allowed_hosts, "enable_dns_rebinding_protection": False})
     return settings.model_copy(update={"allowed_hosts": allowed_hosts})
 
 

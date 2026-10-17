@@ -116,7 +116,7 @@ HTTP is disabled by default. The stdio transport is recommended for most use cas
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `UNIFI_MCP_ALLOWED_HOSTS` | `localhost,127.0.0.1` | Allowed hostnames (for reverse proxy setups) |
+| `UNIFI_MCP_ALLOWED_HOSTS` | `localhost,127.0.0.1` | Allowed hostnames (for reverse proxy setups); a bare `*` accepts any Host header and disables DNS rebinding protection — only for a trusted network, prefer naming the hosts |
 | `UNIFI_MCP_ENABLE_DNS_REBINDING_PROTECTION` | `true` | DNS rebinding protection |
 
 ## Diagnostics
