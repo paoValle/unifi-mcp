@@ -48,7 +48,7 @@ def test_explicit_empty_operator_allowlist_does_not_restore_defaults() -> None:
     assert resolve_allowed_hosts("", internal_hosts="unifi-network-mcp") == ["unifi-network-mcp"]
 
 
-@pytest.mark.parametrize("wildcard", ["*", "*:*", "**:*", ":*", ""])
+@pytest.mark.parametrize("wildcard", ["*", "*:*", "**:*", ":*", "", "*.example.com", "mcp.*", "*:8443"])
 def test_wildcard_allowlist_entry_fails_startup(wildcard: str) -> None:
     with pytest.raises(ValueError, match="UNIFI_MCP_ENABLE_DNS_REBINDING_PROTECTION"):
         UniFiMCPServer(
@@ -56,6 +56,17 @@ def test_wildcard_allowlist_entry_fails_startup(wildcard: str) -> None:
             version="1.0.0",
             transport_security=TransportSecuritySettings(allowed_hosts=[wildcard]),
         )
+
+
+@pytest.mark.parametrize("entry", ["mcp.example.com:*", "[::1]:*", "localhost"])
+def test_port_wildcard_and_named_hosts_still_start(entry: str) -> None:
+    server = UniFiMCPServer(
+        "wildcard-test",
+        version="1.0.0",
+        transport_security=TransportSecuritySettings(allowed_hosts=[entry]),
+    )
+
+    assert server.transport_security is not None
 
 
 def test_wildcard_allowlist_entry_is_allowed_when_the_host_check_is_off() -> None:
